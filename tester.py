@@ -11,6 +11,7 @@ import detectors
 R_SYMBOLS = ['N', 'V', 'L', 'R', '/', 'f', 'A', 'E', 'Q', 'F', 'j', 'J', 'a', 'S', 'e']
 DETECTION_X_RANGE = 58
 FILES = list({f.split('.')[0] for f in listdir('./db') if isfile(join('./db', f))} - {'.'})
+FILE_OUT = 'results_per_file.json'
 
 
 @timer
@@ -18,7 +19,7 @@ def test_all_multi_thr():
     res = []
     with Pool(16) as p:
         res = p.map(test_file, FILES)
-    return [itm for sublist in res for itm in sublist]  # flatten
+    return res
 
 
 @timer
@@ -32,66 +33,41 @@ def test_all_single_thr():
 def test_file(file):
     filename = 'db/' + file
     record = wfdb.rdrecord(filename)
-    record_signal_ch0 = list(map(lambda x: x[0], record.p_signal))
+    signal = list(map(lambda x: x[0], record.p_signal))
+    found_r_peaks = detectors.ff_my(signal)
+    r_peaks_annotated = get_r_peaks_from(wfdb.rdann(filename, 'atr'))
 
-    anno = wfdb.rdann(filename, 'atr')
-    anno_r_peaks = get_r_peaks_from(anno)
-    anno_r_peaks_x = list(map(lambda x: x[0], anno_r_peaks))
-    annotation_count = len(anno_r_peaks)
-
-    file_stats = []
-    t_pos, f_pos, f_neg = test_detection(record_signal_ch0, anno_r_peaks_x)
-    file_stats.append(create_stats(file, annotation_count, t_pos, f_pos, f_neg))
-
-    return file_stats
+    t_pos, f_pos, f_neg = binary_classifier(r_peaks_annotated, found_r_peaks)
+    return create_stats(file, len(r_peaks_annotated), t_pos, f_pos, f_neg)
 
 
 def get_r_peaks_from(ann):
-    return list(filter(lambda x: x[1] in R_SYMBOLS, zip(ann.sample, ann.symbol)))
+    return list(map(lambda x: x[0], filter(lambda x: x[1] in R_SYMBOLS, zip(ann.sample, ann.symbol))))
 
 
-def test_detection(record_signal_ch0, anno_r_peaks_x):
-    found_r_peaks = detectors.ff_my(record_signal_ch0)
-    t_pos, f_pos, f_neg = calculate_stats_for_tests_bitmap(anno_r_peaks_x, found_r_peaks)
-    return t_pos, f_pos, f_neg
-
-
-# @timer
-def calculate_stats_for_tests_bitmap(anno_r_peaks_x, found_r_peaks_x):
-    return calculate_stats_for_tests_bitmap2(anno_r_peaks_x, found_r_peaks_x)
-
-
-def calculate_stats_for_tests_bitmap2(annotated_x, detected_x):
+def binary_classifier(r_peaks_annotated, found_r_peaks):
     t_pos = 0
-    print('annotated:', len(annotated_x), '/ detected:', len(detected_x))
-
-    if len(annotated_x) > 0:
-        bitmap_len = annotated_x[len(annotated_x) - 1] + DETECTION_X_RANGE
-        anno_bitmap = np.zeros(bitmap_len)
-        det_bitmap = np.zeros(bitmap_len)
-        for x in annotated_x:
-            for i in range(0, DETECTION_X_RANGE):
-                if x - i > 0:
-                    anno_bitmap[x - i] = 1
-                anno_bitmap[x + i] = 1
-        for x in detected_x:
+    if len(r_peaks_annotated) > 0:
+        bitmap_len = r_peaks_annotated[-1] + DETECTION_X_RANGE
+        found_bitmap = np.zeros(bitmap_len)
+        for x in found_r_peaks:
             if x < bitmap_len:
-                det_bitmap[x] = 1
-
-        t_pos = 0
-        f_pos = 0
-        for i in range(0, bitmap_len):
-            if det_bitmap[i]:
-                if anno_bitmap[i]:
-                    t_pos += 1
-                else:
-                    f_pos += 1
-
-        f_neg = max(0, len(annotated_x) - t_pos)
+                found_bitmap[x] = 1
+        for x in r_peaks_annotated:
+            left_thres = max(0, x - DETECTION_X_RANGE)
+            right_thres = min(bitmap_len, x + DETECTION_X_RANGE + 1)
+            found = False
+            for i in range(left_thres, right_thres):
+                if found_bitmap[i]:
+                    found = True
+                    found_bitmap[i] = 0
+                    break
+            if found:
+                t_pos += 1
     else:
         t_pos = 0
-        f_neg = 0
-        f_pos = len(detected_x)
+    f_neg = len(r_peaks_annotated) - t_pos
+    f_pos = len(found_r_peaks) - t_pos
     print('t_pos:', t_pos, 'f_pos:', f_pos, 'f_neg: ', f_neg)
     return t_pos, f_pos, f_neg
 
@@ -109,6 +85,6 @@ def create_stats(filename, annotation_count, t_pos, f_pos, f_neg):
 if __name__ == '__main__':
     res = test_all_multi_thr()
 
-    f = open('tmp.json', 'w')
+    f = open(FILE_OUT, 'w')
     f.write(json.dumps(res))
     f.close()

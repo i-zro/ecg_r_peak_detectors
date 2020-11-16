@@ -1,10 +1,10 @@
 import json
 import csv
 
-FILE_IN = 'tmp.json'
+FILE_IN = 'results_per_file.json'
 PRINT_SUMMARY = True
 SAVE_TO_FILE = True
-FILE_OUT = 'results.csv'
+FILE_OUT = 'results_summary.csv'
 
 
 def main():
