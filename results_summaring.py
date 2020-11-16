@@ -2,7 +2,7 @@ import json
 import csv
 
 FILE_IN = 'tmp.json'
-PRINT_SUMARY = True
+PRINT_SUMMARY = True
 SAVE_TO_FILE = True
 FILE_OUT = 'results.csv'
 
@@ -26,7 +26,7 @@ def main():
             writer.writerow(['TP', tp])
             writer.writerow(['FP', fp])
             writer.writerow(['FN', fn])
-    if PRINT_SUMARY:
+    if PRINT_SUMMARY:
         print('Total peaks:\t\t' + str(annotations))
         print('True positives:\t\t' + str(tp))
         print('False positives:\t' + str(fp))

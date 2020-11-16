@@ -213,5 +213,4 @@ def ff_my(x):
             if y[n] > th:
                 th = None
                 state = 1
-    # return found_peaks_pos
-    return list(map(lambda a: (a, x[a]), found_peaks_pos))
+    return found_peaks_pos
