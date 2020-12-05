@@ -8,10 +8,11 @@ from os.path import isfile, join
 import detectors
 
 
-R_SYMBOLS = ['N', 'V', 'L', 'R', '/', 'f', 'A', 'E', 'Q', 'F', 'j', 'J', 'a', 'S', 'e']
-DETECTION_X_RANGE = 58
+# R_SYMBOLS = ['N', 'V', 'L', 'R', '/', 'f', 'A', 'E', 'Q', 'F', 'j', 'J', 'a', 'S', 'e']
+R_SYMBOLS = ['N', 'V', 'L', 'R', '/', 'f', 'A', 'E', 'Q', 'F', 'j', 'J', 'a', 'S', 'e', 'r', 'F', 'n', '?']
+DETECTION_X_RANGE = 58 # or 56
 FILES = list({f.split('.')[0] for f in listdir('./db') if isfile(join('./db', f))} - {'.'})
-FILE_OUT = 'results_per_file.json'
+FILE_OUT = 'results/alg4_per_file.json'
 
 
 @timer
@@ -34,7 +35,8 @@ def test_file(file):
     filename = 'db/' + file
     record = wfdb.rdrecord(filename)
     signal = list(map(lambda x: x[0], record.p_signal))
-    found_r_peaks = detectors.ff_my(signal)
+    found_r_peaks = detectors.alg4(signal)
+    # found_r_peaks = detectors.ff_my(signal)
     r_peaks_annotated = get_r_peaks_from(wfdb.rdann(filename, 'atr'))
 
     t_pos, f_pos, f_neg = binary_classifier(r_peaks_annotated, found_r_peaks)

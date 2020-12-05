@@ -1,10 +1,10 @@
 import json
 import csv
 
-FILE_IN = 'results_per_file.json'
 PRINT_SUMMARY = True
 SAVE_TO_FILE = True
-FILE_OUT = 'results_summary.csv'
+FILE_IN = 'results/alg4_per_file.json'
+FILE_OUT = 'results/alg4_summary.csv'
 
 
 def main():
