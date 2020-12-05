@@ -1,6 +1,8 @@
 import numpy as np
 import math
+import statistics
 
+HZ = 360
 
 def ff_basic_project(ecg):
     # Running median elements
@@ -214,3 +216,77 @@ def ff_my(x):
                 th = None
                 state = 1
     return found_peaks_pos
+
+
+def alg4(x):
+    ALPHA = 0.46
+    GAMMA = 0.97
+    samples_num_short_avg = 20
+    samples_num_long_avg = 100
+    samples_num_window = 72
+    max_diff_arg, max_diff_val = alg4_find_first_peak(x)
+    found_peaks = [max_diff_arg]
+    threshold = ALPHA * max_diff_val
+    print('initial threshold: ' + (str(threshold)))
+    short_avg_sum = 0.0
+    long_avg_sum = 0.0
+    search_samples_left = 0
+    max_x = 0
+    max_abs_y = 0.0
+    refractory_window_end = found_peaks[0] + samples_num_window
+    is_inside_refractory_window = True
+    is_inside_searching_window = False
+    x_len = len(x)
+    for i in range(0, x_len):
+        short_avg_sum += x[i]
+        long_avg_sum += x[i]
+        if i >= samples_num_short_avg:
+            short_avg_sum -= x[i - samples_num_short_avg]
+        if i >= samples_num_long_avg:
+            long_avg_sum -= x[i - samples_num_long_avg]
+        if i < samples_num_short_avg - 1:
+            continue
+
+        abs_diff_short = abs(short_avg_sum / samples_num_short_avg - x[i]) #TODO: czy tu na pewno ten short diff
+        if is_inside_refractory_window:
+            if i == refractory_window_end:
+                is_inside_refractory_window = False
+            else:
+                continue
+        if abs_diff_short >= threshold:
+            if not is_inside_searching_window:
+                is_inside_searching_window = True
+                search_samples_left = samples_num_window
+        if is_inside_searching_window:
+            if abs(long_avg_sum / samples_num_long_avg - x[i]) > max_abs_y:
+                max_x = i
+                max_abs_y = abs(long_avg_sum / samples_num_long_avg - x[i])
+                max_abs_short = abs_diff_short
+            search_samples_left -= 1
+            if search_samples_left == 0:
+                found_peaks.append(max_x)
+                threshold = GAMMA * threshold + ALPHA * (1 - GAMMA) * max_abs_short #TODO: z czego tu ten maks
+                is_inside_searching_window = False
+                is_inside_refractory_window = True
+                refractory_window_end = max_x + samples_num_window
+                max_x = 0
+                max_abs_y = 0.0
+    print('Tape evaluated')
+    return found_peaks
+
+
+def alg4_find_first_peak(x):
+    short_avg_sum = 0.0
+    max_diff_val = -1.0
+    max_diff_arg = 0
+    for i in range(0, HZ):
+        short_avg_sum += x[i]
+        if i < 20 - 1:
+            continue
+        abs_diff_short = abs(short_avg_sum / 20 - x[i])
+        if abs_diff_short > max_diff_val:
+            max_diff_val = abs_diff_short
+            max_diff_arg = i
+        short_avg_sum -= x[i - 20]
+    return max_diff_arg, max_diff_val
+
