@@ -156,7 +156,7 @@ def get_shift(current_window):
     return len(current_window) - max_elem_idx - 1
 
 
-def ff_my(x):
+def alg1_spanish(x):
     Nd = 7
     N = 8
     rr_min = 72 # 200ms, (360 * 0.200)
@@ -218,7 +218,7 @@ def ff_my(x):
     return found_peaks_pos
 
 
-def alg4(x):
+def alg4_polish(x):
     ALPHA = 0.46
     GAMMA = 0.97
     samples_num_short_avg = 20
