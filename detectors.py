@@ -4,6 +4,10 @@ import statistics
 
 HZ = 360
 
+ALG2_LEVEL_WIDTH = 0.07
+ALG2_A_THRES = 7
+
+
 def ff_basic_project(ecg):
     # Running median elements
     N = 8
@@ -216,6 +220,76 @@ def alg1_spanish(x):
                 th = None
                 state = 1
     return found_peaks_pos
+
+
+def alg2_get_thresholds(val):
+    lower_thres = 0.0
+    upper_thres = ALG2_LEVEL_WIDTH
+    while val < lower_thres:
+        lower_thres -= ALG2_LEVEL_WIDTH
+        upper_thres -= ALG2_LEVEL_WIDTH
+    while val > upper_thres:
+        lower_thres += ALG2_LEVEL_WIDTH
+        upper_thres += ALG2_LEVEL_WIDTH
+    return lower_thres, upper_thres
+
+
+def alg2_generate_events(x):
+    lower_thres, upper_thres = alg2_get_thresholds(x[0])
+    # print('ecg[0]: ' + str(x[0]) + ', lower_thres: ' + str(lower_thres) + ', upper_thres: ' + str(upper_thres))
+    events = []
+    x_len = len(x)
+    for i in range(0, x_len):
+        if x[i] < lower_thres:
+            events.append(('FALL', i))
+            lower_thres -= ALG2_LEVEL_WIDTH
+            upper_thres -= ALG2_LEVEL_WIDTH
+        elif x[i] > upper_thres:
+            events.append(('RISE', i))
+            lower_thres += ALG2_LEVEL_WIDTH
+            upper_thres += ALG2_LEVEL_WIDTH
+    # print(events)
+    return events
+
+
+def alg2_chinese(x):
+    events = alg2_generate_events(x)
+    step = 1
+    counter_rise = 0
+    counter_fall = 0
+    r_quess = 0
+    found_peaks = []
+    prev_event = events[0][0]
+    for event in events[1:]:
+        if 1 == step:
+            if event[0] == 'RISE':
+                counter_rise += 1
+            else:
+                counter_rise = 0
+            if counter_rise > ALG2_A_THRES: # TODO: > or >=
+                counter_rise = 0
+                step = 2
+        elif 2 == step:
+            if 0 == counter_fall:
+                if event[0] == 'FALL':
+                    r_quess = int((prev_event[1] + event[1]) / 2)
+                    counter_fall += 1
+            else:
+                if event[0] == 'FALL':
+                    counter_fall += 1
+                    if counter_fall > ALG2_A_THRES: # TODO: > or >=
+                        counter_fall = 0
+                        step = 3
+                else:
+                    counter_fall = 0
+                    step = 1
+                    counter_rise = 1
+        elif 3 == step:
+            if event[0] == 'RISE':
+                step = 1
+                found_peaks.append(r_quess)
+        prev_event = event
+    return found_peaks
 
 
 def alg4_polish(x):
