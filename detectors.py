@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import statistics
+import own_detectors
 
 HZ = 360
 
@@ -467,3 +468,5 @@ def alg4_find_first_peak(x):
     return max_diff_arg, max_diff_val
 
 
+def alg_own(x):
+    return own_detectors.current(x)
