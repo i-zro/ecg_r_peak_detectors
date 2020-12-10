@@ -7,6 +7,17 @@ HZ = 360
 ALG2_LEVEL_WIDTH = 0.07
 ALG2_A_THRES = 7
 
+ALG3_LEVEL_WIDTH = 0.078
+ALG3_K = 4
+ALG3_W = 9
+ALG3_RISE_AFTER_FALL = 0
+ALG3_RISE_AFTER_RISE = 1
+ALG3_FALL_AFTER_FALL = 2
+ALG3_FALL_AFTER_RISE = 3
+ALG3_COEFF1 = 0.25
+ALG3_COEFF2 = 0.25
+ALG3_COEFF3 = 0.125
+
 
 def ff_basic_project(ecg):
     # Running median elements
@@ -292,6 +303,94 @@ def alg2_chinese(x):
     return found_peaks
 
 
+def alg3_get_thresholds(val):
+    lower_thres = 0.0
+    upper_thres = ALG3_K * ALG3_LEVEL_WIDTH
+    while val < lower_thres:
+        lower_thres -= ALG3_LEVEL_WIDTH
+        upper_thres -= ALG3_LEVEL_WIDTH
+    while val > upper_thres:
+        lower_thres += ALG3_LEVEL_WIDTH
+        upper_thres += ALG3_LEVEL_WIDTH
+    return lower_thres, upper_thres
+
+
+# TODO: refactor
+def alg3_generate_events(x):
+    lower_thres, upper_thres = alg3_get_thresholds(x[0])
+    events = []
+    x_len = len(x)
+    for i in range(0, x_len):
+        if x[i] < lower_thres:
+            if 0 == len(events):
+                events.append((ALG3_FALL_AFTER_FALL, i))
+            else:
+                if ALG3_RISE_AFTER_FALL == events[-1][0] or ALG3_RISE_AFTER_RISE == events[-1][0]:
+                    events.append((ALG3_FALL_AFTER_RISE, i))
+                else:
+                    events.append((ALG3_FALL_AFTER_FALL, i))
+            lower_thres -= ALG2_LEVEL_WIDTH
+            upper_thres -= ALG2_LEVEL_WIDTH
+        elif x[i] > upper_thres:
+            if 0 == len(events):
+                events.append((ALG3_RISE_AFTER_RISE, i))
+            else:
+                if ALG3_FALL_AFTER_FALL == events[-1][0] or ALG3_FALL_AFTER_RISE == events[-1][0]:
+                    events.append((ALG3_RISE_AFTER_FALL, i)) # 0 - RISE after FALL
+                else:
+                    events.append((ALG3_RISE_AFTER_RISE, i))
+            lower_thres += ALG2_LEVEL_WIDTH
+            upper_thres += ALG2_LEVEL_WIDTH
+    # print(events)
+    return events
+
+
+def is_peak(event_type):
+    return ALG3_FALL_AFTER_RISE == event_type or ALG3_RISE_AFTER_FALL == event_type
+
+
+def get_dur(events, p):
+    peak_time = events[p][1]
+    start_idx = p - int(ALG3_W / 2)
+    end_idx = p + int(ALG3_W / 2) - ALG3_K + ALG3_W % 2
+    dur = 0
+    for i in range(start_idx, end_idx):
+        if 0 <= i <= len(events):
+            dur += abs(events[i][1] - peak_time)
+    return dur
+
+
+# TODO:
+def alg3_iranian(x):
+    SP = None
+    NP = None
+    events = alg3_generate_events(x)
+    events_len = len(events)
+    peaks = []
+    pob = 300
+    TH2 = 0.5 * pob
+    for i in range(0, events_len):
+        if is_peak(events[i][0]):
+            dur = get_dur(events, i)
+            if SP is None:
+                SP = dur
+                NP = dur
+                TH1 = SP + ALG3_COEFF2 * (NP - SP)
+            if dur < TH1:
+                if len(peaks) > 0:
+                    if TH2 < abs(events[i][1] - peaks[-1]):
+                        pob = min(pob - ALG3_COEFF3 * (pob - abs(events[i][1] - peaks[-1])), 360)
+                        TH2 = 0.5 * pob
+                        peaks.append(events[i][1])
+                else:
+                    peaks.append(events[i][1])
+                SP = SP - ALG3_COEFF1 * (SP - dur)
+            else:
+                NP = NP - ALG3_COEFF1 * (NP - dur)
+    print('Tape evaluated by alg3 iranian')
+    return peaks
+
+
 def alg4_polish(x):
     ALPHA = 0.46
     GAMMA = 0.97
@@ -366,4 +465,5 @@ def alg4_find_first_peak(x):
             max_diff_arg = i
         short_avg_sum -= x[i - 20]
     return max_diff_arg, max_diff_val
+
 

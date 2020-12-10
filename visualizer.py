@@ -25,7 +25,8 @@ def get_plot_data():
     record = wfdb.rdrecord(FILEPATH)
     signal_ch0 = list(map(lambda x: x[0], record.p_signal))
     ecg = np.array(signal_ch0)
-    peaks_r = detectors.alg1_spanish(ecg)
+    # peaks_r = detectors.alg1_spanish(ecg)
+    peaks_r = detectors.alg3_iranian(ecg)
     # peaks_r = detectors.alg4_polish(ecg)
 
     ann = wfdb.rdann(FILEPATH, 'atr')
