@@ -2,10 +2,11 @@ import numpy as np
 import math
 import statistics
 import own_detectors
+import scipy.signal as signal
 
 HZ = 360
 
-ALG2_LEVEL_WIDTH = 0.07
+ALG2_LEVEL_WIDTH = 0.09
 ALG2_A_THRES = 7
 
 ALG3_LEVEL_WIDTH = 0.078
@@ -234,6 +235,33 @@ def alg1_spanish(x):
     return found_peaks_pos
 
 
+def alg2_normalize_signal(signal):
+    signal_min = 5.0
+    signal_max = -5.0
+    new_min = 5.0
+    new_max = -5.0
+    for sample in signal:
+        if sample > signal_max:
+            signal_max = sample
+        if sample < signal_min:
+            signal_min = sample
+    signal_diff = signal_max - signal_min
+    factor = 10.0 / signal_diff
+    offset = signal_max * factor - 5.0
+    print('signal_max: ' + str(signal_max) + ', signal_min: ' + str(signal_min) +
+          ', signal_diff: ' + str(signal_diff) + ', factor: ' + str(factor))
+    normalized_signal = []
+    for sample in signal:
+        new_sample = sample * factor - offset
+        if new_sample > new_max:
+            new_max = new_sample
+        if new_sample < new_min:
+            new_min = new_sample
+        normalized_signal.append(new_sample)
+    print('new_max: ' + str(new_max) + ', new_min: ' + str(new_min))
+    return normalized_signal
+
+
 def alg2_get_thresholds(val):
     lower_thres = 0.0
     upper_thres = ALG2_LEVEL_WIDTH
@@ -252,11 +280,11 @@ def alg2_generate_events(x):
     events = []
     x_len = len(x)
     for i in range(0, x_len):
-        if x[i] < lower_thres:
+        if x[i] < lower_thres - 0.1 * ALG2_LEVEL_WIDTH:
             events.append(('FALL', i))
             lower_thres -= ALG2_LEVEL_WIDTH
             upper_thres -= ALG2_LEVEL_WIDTH
-        elif x[i] > upper_thres:
+        elif x[i] > upper_thres + 0.1 * ALG2_LEVEL_WIDTH:
             events.append(('RISE', i))
             lower_thres += ALG2_LEVEL_WIDTH
             upper_thres += ALG2_LEVEL_WIDTH
@@ -265,6 +293,7 @@ def alg2_generate_events(x):
 
 
 def alg2_chinese(x):
+    # x = alg2_normalize_signal(x)
     events = alg2_generate_events(x)
     step = 1
     counter_rise = 0
@@ -319,6 +348,8 @@ def alg3_get_thresholds(val):
 # TODO: refactor
 def alg3_generate_events(x):
     lower_thres, upper_thres = alg3_get_thresholds(x[0])
+    # print('alg3 generating events: first sample value: ' + str(x[0]) + '\tlower_thres: ' + str(lower_thres) + '\tupper_thres:' + str(upper_thres))
+    # print('alg3 generating events: first 0.100s (36 samples) values: ' + str(x[:36]))
     events = []
     x_len = len(x)
     for i in range(0, x_len):
@@ -351,14 +382,9 @@ def is_peak(event_type):
 
 
 def get_dur(events, p):
-    peak_time = events[p][1]
-    start_idx = p - int(ALG3_W / 2)
-    end_idx = p + int(ALG3_W / 2) - ALG3_K + ALG3_W % 2
-    dur = 0
-    for i in range(start_idx, end_idx):
-        if 0 <= i <= len(events):
-            dur += abs(events[i][1] - peak_time)
-    return dur
+    start_idx = max(p - math.ceil(ALG3_W / 2.0), 0)
+    end_idx = min(p + math.ceil(ALG3_W / 2.0) - ALG3_K + ALG3_W % 2, len(events) - 1)
+    return int(events[end_idx][1] - events[start_idx][1])
 
 
 # TODO:
@@ -386,6 +412,41 @@ def alg3_iranian(x):
                 else:
                     peaks.append(events[i][1])
                 SP = SP - ALG3_COEFF1 * (SP - dur)
+            else:
+                NP = NP - ALG3_COEFF1 * (NP - dur)
+    print('Tape evaluated by alg3 iranian')
+    return peaks
+
+# TODO:
+def alg3_iranian_test(x):
+    SP = None
+    NP = None
+    events = alg3_generate_events(x)
+    # print(events[-100:])
+    events_len = len(events)
+    peaks = []
+    pob = 300
+    TH2 = 0.5 * pob
+    for i in range(0, events_len):
+        if is_peak(events[i][0]):
+            dur = get_dur(events, i)
+            if SP is None:
+                SP = dur
+                NP = dur
+                TH1 = (SP + ALG3_COEFF2 * (NP - SP)) + 1
+            # print('Alg3: sample: ' + str(events[i][1]) + '\tdur: ' + str(dur) + '\tTH1: ' + str(TH1))
+            if dur <= TH1:
+                if len(peaks) > 0:
+                    if TH2 < abs(events[i][1] - peaks[-1]):
+                        SP = SP - ALG3_COEFF1 * (SP - dur)
+                        pob = min(pob - ALG3_COEFF3 * (pob - abs(events[i][1] - peaks[-1])), 360)
+                        TH2 = 0.5 * pob
+                        peaks.append(events[i][1])
+                        TH1 = SP + ALG3_COEFF2 * (NP - SP)
+                else:
+                    SP = SP - ALG3_COEFF1 * (SP - dur)
+                    peaks.append(events[i][1])
+                    TH1 = 1 + (SP + ALG3_COEFF2 * (NP - SP))
             else:
                 NP = NP - ALG3_COEFF1 * (NP - dur)
     print('Tape evaluated by alg3 iranian')
@@ -466,6 +527,154 @@ def alg4_find_first_peak(x):
             max_diff_arg = i
         short_avg_sum -= x[i - 20]
     return max_diff_arg, max_diff_val
+
+
+def alg5_pan_tompkins(x):
+    return pan_tompkins_detector(x)
+
+fs = 360
+def pan_tompkins_detector(unfiltered_ecg, MWA_name='cumulative'):
+    """
+    Jiapu Pan and Willis J. Tompkins.
+    A Real-Time QRS Detection Algorithm.
+    In: IEEE Transactions on Biomedical Engineering
+    BME-32.3 (1985), pp. 230–236.
+    """
+
+    f1 = 5 / fs
+    f2 = 15 / fs
+
+    b, a = signal.butter(1, [f1 * 2, f2 * 2], btype='bandpass')
+
+    filtered_ecg = signal.lfilter(b, a, unfiltered_ecg)
+
+    diff = np.diff(filtered_ecg)
+
+    squared = diff * diff
+
+    N = int(0.12 * fs)
+    mwa = MWA_from_name(MWA_name)(squared, N)
+    mwa[:int(0.2 * fs)] = 0
+
+    mwa_peaks = panPeakDetect(mwa, fs)
+
+    return mwa_peaks
+
+
+def MWA_from_name(function_name):
+    if function_name == "cumulative":
+        return MWA_cumulative
+    elif function_name == "convolve":
+        return MWA_convolve
+    elif function_name == "original":
+        return MWA_original
+    else:
+        raise RuntimeError('invalid moving average function!')
+
+
+# Fast implementation of moving window average with numpy's cumsum function
+def MWA_cumulative(input_array, window_size):
+    ret = np.cumsum(input_array, dtype=float)
+    ret[window_size:] = ret[window_size:] - ret[:-window_size]
+
+    for i in range(1, window_size):
+        ret[i - 1] = ret[i - 1] / i
+    ret[window_size - 1:] = ret[window_size - 1:] / window_size
+
+    return ret
+
+
+# Original Function
+def MWA_original(input_array, window_size):
+    mwa = np.zeros(len(input_array))
+    mwa[0] = input_array[0]
+
+    for i in range(2, len(input_array) + 1):
+        if i < window_size:
+            section = input_array[0:i]
+        else:
+            section = input_array[i - window_size:i]
+
+        mwa[i - 1] = np.mean(section)
+
+    return mwa
+
+
+# Fast moving window average implemented with 1D convolution
+def MWA_convolve(input_array, window_size):
+    ret = np.pad(input_array, (window_size - 1, 0), 'constant', constant_values=(0, 0))
+    ret = np.convolve(ret, np.ones(window_size), 'valid')
+
+    for i in range(1, window_size):
+        ret[i - 1] = ret[i - 1] / i
+    ret[window_size - 1:] = ret[window_size - 1:] / window_size
+
+    return ret
+
+
+def panPeakDetect(detection, fs):
+    min_distance = int(0.25 * fs)
+
+    signal_peaks = [0]
+    noise_peaks = []
+
+    SPKI = 0.0
+    NPKI = 0.0
+
+    threshold_I1 = 0.0
+    threshold_I2 = 0.0
+
+    RR_missed = 0
+    index = 0
+    indexes = []
+
+    missed_peaks = []
+    peaks = []
+
+    for i in range(len(detection)):
+
+        if i > 0 and i < len(detection) - 1:
+            if detection[i - 1] < detection[i] and detection[i + 1] < detection[i]:
+                peak = i
+                peaks.append(i)
+
+                if detection[peak] > threshold_I1 and (peak - signal_peaks[-1]) > 0.3 * fs:
+
+                    signal_peaks.append(peak)
+                    indexes.append(index)
+                    SPKI = 0.125 * detection[signal_peaks[-1]] + 0.875 * SPKI
+                    if RR_missed != 0:
+                        if signal_peaks[-1] - signal_peaks[-2] > RR_missed:
+                            missed_section_peaks = peaks[indexes[-2] + 1:indexes[-1]]
+                            missed_section_peaks2 = []
+                            for missed_peak in missed_section_peaks:
+                                if missed_peak - signal_peaks[-2] > min_distance and signal_peaks[
+                                    -1] - missed_peak > min_distance and detection[missed_peak] > threshold_I2:
+                                    missed_section_peaks2.append(missed_peak)
+
+                            if len(missed_section_peaks2) > 0:
+                                missed_peak = missed_section_peaks2[np.argmax(detection[missed_section_peaks2])]
+                                missed_peaks.append(missed_peak)
+                                signal_peaks.append(signal_peaks[-1])
+                                signal_peaks[-2] = missed_peak
+
+                else:
+                    noise_peaks.append(peak)
+                    NPKI = 0.125 * detection[noise_peaks[-1]] + 0.875 * NPKI
+
+                threshold_I1 = NPKI + 0.25 * (SPKI - NPKI)
+                threshold_I2 = 0.5 * threshold_I1
+
+                if len(signal_peaks) > 8:
+                    RR = np.diff(signal_peaks[-9:])
+                    RR_ave = int(np.mean(RR))
+                    RR_missed = int(1.66 * RR_ave)
+
+                index = index + 1
+
+    signal_peaks.pop(0)
+
+    return signal_peaks
 
 
 def alg_own(x):

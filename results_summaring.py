@@ -3,10 +3,14 @@ import csv
 
 PRINT_SUMMARY = True
 SAVE_TO_FILE = True
-# FILE_IN = 'results/alg2_chinese_per_file.json'
-# FILE_OUT = 'results/alg2_chinese_summary.csv'
-FILE_IN = 'results/alg3_iranian_per_file.json'
-FILE_OUT = 'results/alg3_iranian_summary.csv'
+FILE_IN = 'results/alg2_chinese_per_file.json'
+FILE_OUT = 'results/alg2_chinese_summary.csv'
+# FILE_IN = 'results/alg3_iranian_per_file.json'
+# FILE_OUT = 'results/alg3_iranian_summary.csv'
+# FILE_IN = 'results/alg5_pan_tompkins_per_file.json'
+# FILE_OUT = 'results/alg5_pan_tompkins_summary.csv'
+# FILE_IN = 'results/alg_own_v3_per_file.json'
+# FILE_OUT = 'results/alg_own_v3_summary.csv'
 
 
 def main():
