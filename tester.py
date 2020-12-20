@@ -13,10 +13,25 @@ import sample_time_converter
 R_SYMBOLS = ['N', 'V', 'L', 'R', '/', 'f', 'A', 'E', 'Q', 'F', 'j', 'J', 'a', 'S', 'e', 'r', 'F', 'n', '?']
 DETECTION_X_RANGE = 58 # or 56
 FILES = list({f.split('.')[0] for f in listdir('./db') if isfile(join('./db', f))} - {'.'})
-FILE_OUT = 'results/alg2_chinese_per_file.json'
-# FILE_OUT = 'results/alg3_iranian_per_file.json'
-# FILE_OUT = 'results/alg5_pan_tompkins_per_file.json'
-# FILE_OUT = 'results/alg_own_v3_per_file.json'
+
+TESTED_ALG = 1
+
+ALG1 = detectors.alg1_spanish
+ALG1_FILE_OUT = 'results/alg1_spanish_per_file.json'
+ALG2 = detectors.alg2_chinese
+ALG2_FILE_OUT = 'results/alg2_chinese_per_file.json'
+ALG3 = detectors.alg3_iranian_test
+ALG3_FILE_OUT = 'results/alg3_iranian_per_file.json'
+ALG4 = detectors.alg4_polish
+ALG4_FILE_OUT = 'results/alg4_polish_per_file.json'
+ALG5 = detectors.alg5_pan_tompkins
+ALG5_FILE_OUT = 'results/alg5_pan_tompkins_per_file.json'
+
+ALG_FILE_DICT = {1: (ALG1, ALG1_FILE_OUT),
+                 2: (ALG2, ALG2_FILE_OUT),
+                 3: (ALG3, ALG3_FILE_OUT),
+                 4: (ALG4, ALG4_FILE_OUT),
+                 5: (ALG5, ALG5_FILE_OUT)}
 
 
 @timer
@@ -39,12 +54,7 @@ def test_file(file):
     filename = 'db/' + file
     record = wfdb.rdrecord(filename)
     signal = list(map(lambda x: x[0], record.p_signal))
-    # found_r_peaks = detectors.alg1_spanish(signal)
-    found_r_peaks = detectors.alg2_chinese(signal)
-    # found_r_peaks = detectors.alg3_iranian_test(signal)
-    # found_r_peaks = detectors.alg4_polish(signal)
-    # found_r_peaks = detectors.alg5_pan_tompkins(signal)
-    # found_r_peaks = detectors.alg_own(signal)
+    found_r_peaks = ALG_FILE_DICT[TESTED_ALG][0](signal)
     r_peaks_annotated = get_r_peaks_from(wfdb.rdann(filename, 'atr'))
 
     t_pos, f_pos, f_neg = binary_classifier(r_peaks_annotated, found_r_peaks)
@@ -86,17 +96,17 @@ def binary_classifier(r_peaks_annotated, found_r_peaks):
 
 def create_stats(filename, annotation_count, t_pos, f_pos, f_neg):
     return {
-        'filename': filename,
-        'annotation_count': annotation_count,
-        'true_positive': t_pos,
-        'false_positive': f_pos,
-        'false_negative': f_neg
+        'tape': filename,
+        'TB': annotation_count,
+        'TP': t_pos,
+        'FN': f_neg,
+        'FP': f_pos
     }
 
 
 if __name__ == '__main__':
     res = test_all_multi_thr()
 
-    f = open(FILE_OUT, 'w')
+    f = open(ALG_FILE_DICT[TESTED_ALG][1], 'w')
     f.write(json.dumps(res))
     f.close()

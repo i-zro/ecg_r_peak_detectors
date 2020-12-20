@@ -4,16 +4,24 @@ import csv
 PRINT_SUMMARY = True
 SAVE_TO_FILE = True
 
-# FILE_IN = 'results/alg1_spanish_per_file.json'
-# FILE_OUT = 'results/alg1_spanish_summary.csv'
-# FILE_IN = 'results/alg2_chinese_per_file.json'
-# FILE_OUT = 'results/alg2_chinese_summary.csv'
-# FILE_IN = 'results/alg3_iranian_per_file.json'
-# FILE_OUT = 'results/alg3_iranian_summary.csv'
-# FILE_IN = 'results/alg4_polish_per_file.json'
-# FILE_OUT = 'results/alg4_polish_summary.csv'
-FILE_IN = 'results/alg5_pan_tompkins_per_file.json'
-FILE_OUT = 'results/alg5_pan_tompkins_summary.csv'
+TESTED_ALG = 1
+
+ALG1_FILE_IN = 'results/alg1_spanish_per_file.json'
+ALG1_FILE_OUT = 'results/alg1_spanish_summary.csv'
+ALG2_FILE_IN = 'results/alg2_chinese_per_file.json'
+ALG2_FILE_OUT = 'results/alg2_chinese_summary.csv'
+ALG3_FILE_IN = 'results/alg3_iranian_per_file.json'
+ALG3_FILE_OUT = 'results/alg3_iranian_summary.csv'
+ALG4_FILE_IN = 'results/alg4_polish_per_file.json'
+ALG4_FILE_OUT = 'results/alg4_polish_summary.csv'
+ALG5_FILE_IN = 'results/alg5_pan_tompkins_per_file.json'
+ALG5_FILE_OUT = 'results/alg5_pan_tompkins_summary.csv'
+
+ALG_FILE_DICT = {1: (ALG1_FILE_IN, ALG1_FILE_OUT),
+                 2: (ALG2_FILE_IN, ALG2_FILE_OUT),
+                 3: (ALG3_FILE_IN, ALG3_FILE_OUT),
+                 4: (ALG4_FILE_IN, ALG4_FILE_OUT),
+                 5: (ALG5_FILE_IN, ALG5_FILE_OUT)}
 
 
 def main():
@@ -22,25 +30,25 @@ def main():
     fp = 0
     fn = 0
     rows = []
-    with open(FILE_IN) as json_file:
+    with open(ALG_FILE_DICT[TESTED_ALG][0]) as json_file:
         data = json.load(json_file)
         for elem in data:
-            se = elem['true_positive'] / (elem['true_positive'] + elem['false_negative']) * 100
-            p = elem['true_positive'] / (elem['true_positive'] + elem['false_positive']) * 100
-            der = (elem['false_positive'] + elem['false_negative']) / elem['annotation_count'] * 100
-            rows.append([elem['filename'], elem['annotation_count'], elem['false_negative'],
-                        elem['false_positive'], "{:.2f}".format(se), "{:.2f}".format(p), "{:.2f}".format(der)])
-            annotations += elem['annotation_count']
-            tp += elem['true_positive']
-            fp += elem['false_positive']
-            fn += elem['false_negative']
+            se = elem['TP'] / (elem['TP'] + elem['FN']) * 100
+            p = elem['TP'] / (elem['TP'] + elem['FP']) * 100
+            der = (elem['FP'] + elem['FN']) / elem['TB'] * 100
+            rows.append([elem['tape'], elem['TB'], elem['FN'],
+                         elem['FP'], "{:.2f}".format(se), "{:.2f}".format(p), "{:.2f}".format(der)])
+            annotations += elem['TB']
+            tp += elem['TP']
+            fp += elem['FP']
+            fn += elem['FN']
     rows.sort(key=lambda x: x[0])
     se = tp / (tp + fn) * 100
     p = tp / (tp + fp) * 100
     der = (fp + fn) / annotations * 100
     rows.append(['TOTAL', annotations, fn, fp, "{:.2f}".format(se), "{:.2f}".format(p), "{:.2f}".format(der)])
     if SAVE_TO_FILE:
-        with open(FILE_OUT, 'w', newline='') as csvfile:
+        with open(ALG_FILE_DICT[TESTED_ALG][1], 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerow(['Tape', 'TB', 'FN', 'FP', 'Se(%)', '+P(%)', 'DER(%)'])
             for row in rows:
